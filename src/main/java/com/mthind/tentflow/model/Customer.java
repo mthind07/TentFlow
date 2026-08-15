@@ -1,6 +1,6 @@
 package com.mthind.tentflow.model;
 
-//stores immutable customer contact information
+//stores contact information for a customer
 public final class Customer {
 
     private final long id;
@@ -35,12 +35,15 @@ public final class Customer {
                 "Phone"
         );
 
+        //this is intentionally simple email validation
+        //stronger validation exists at the API boundary
         int atPosition = normalizedEmail.indexOf('@');
 
         if (atPosition <= 0
                 || atPosition != normalizedEmail.lastIndexOf('@')
                 || atPosition == normalizedEmail.length() - 1
-                || normalizedEmail.chars()
+                || normalizedEmail
+                .chars()
                 .anyMatch(Character::isWhitespace)) {
 
             throw new IllegalArgumentException(
