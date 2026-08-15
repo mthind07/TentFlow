@@ -22,10 +22,10 @@ import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.TreeMap;
 
-//coordinates TentFlow's Milestone 1 booking operations
-//this service stores everything in memory
+
 public final class TentBookingService {
 
+    //these maps act as temporary in-memory databases, the Long key is the object's ID
     private final Map<Long, Customer> customers =
             new LinkedHashMap<>();
 
@@ -38,21 +38,28 @@ public final class TentBookingService {
     private final Map<Long, MaintenanceBlock> maintenanceBlocks =
             new LinkedHashMap<>();
 
+    //each tent type receives its own ordered waitlist
     private final Map<Long, PriorityQueue<WaitlistEntry>>
             waitlistsByTentType = new LinkedHashMap<>();
 
+    //lock supplies the current time
+    //tests can replace the real clock with a fixed one, making waitlist ordering predictable
     private final Clock clock;
 
+    //these counters temporarily generate IDs
+    //the database will generate IDs in a later milestone
     private long nextCustomerId = 1;
     private long nextTentTypeId = 1;
     private long nextReservationId = 1;
     private long nextMaintenanceBlockId = 1;
     private long nextWaitlistEntryId = 1;
 
+    //cormal constructor used by the real application
     public TentBookingService() {
         this(Clock.systemDefaultZone());
     }
 
+    //constructor used when a specific clock is supplied
     public TentBookingService(Clock clock) {
         this.clock = Objects.requireNonNull(
                 clock,
@@ -60,7 +67,8 @@ public final class TentBookingService {
         );
     }
 
-    public Customer registerCustomer(
+    //creates and stores a customer
+    public synchronized Customer registerCustomer(
             String fullName,
             String email,
             String phone
@@ -82,11 +90,13 @@ public final class TentBookingService {
         return customer;
     }
 
-    public TentType addTentType(
+    //adds a tent size and its physical inventory quantity
+    public synchronized TentType addTentType(
             int widthFeet,
             int lengthFeet,
             int totalQuantity
     ) {
+        //check whether the size already exists
         boolean sizeAlreadyExists =
                 tentTypes.values()
                         .stream()
@@ -123,9 +133,10 @@ public final class TentBookingService {
         return tentType;
     }
 
-    //creates a pending reservation when inventory fits
-    //Otherwise, creates a waitlisted reservation
-    public ReservationView requestReservation(
+    //creates either:
+    //PENDING reservation when inventory fits or
+    //WAITLISTED reservation when it doesn't fit
+    public synchronized ReservationView requestReservation(
             long customerId,
             long tentTypeId,
             int quantity,
@@ -193,6 +204,7 @@ public final class TentBookingService {
                 reservation
         );
 
+        //a waitlisted reservation must also receive an entry in the ordered waitlist
         if (startingStatus == ReservationStatus.WAITLISTED) {
             WaitlistEntry entry = new WaitlistEntry(
                     nextWaitlistEntryId,
@@ -213,7 +225,8 @@ public final class TentBookingService {
         return toView(reservation);
     }
 
-    public int getAvailableQuantity(
+    //public availability method
+    public synchronized int getAvailableQuantity(
             long tentTypeId,
             LocalDateTime reservedFrom,
             LocalDateTime reservedUntil
@@ -233,14 +246,18 @@ public final class TentBookingService {
         );
     }
 
-    //computes peak simultaneous usage during the requested range
+    //calculates the smallest quantity available throughout the complete requested range
+    //it uses a timeline of inventory changes
     private int getAvailableQuantity(
             TentType tentType,
             TimeRange requestedRange
     ) {
+        //TreeMap automatically sorts its keys by date/time
+        // Example: 08:00 -> +2     12:00 -> -2
         TreeMap<LocalDateTime, Integer>
                 inventoryChanges = new TreeMap<>();
 
+        //add active reservation usage
         for (Reservation reservation
                 : reservations.values()) {
 
@@ -262,6 +279,7 @@ public final class TentBookingService {
             }
         }
 
+        //add maintenance usage
         for (MaintenanceBlock block
                 : maintenanceBlocks.values()) {
 
@@ -284,6 +302,7 @@ public final class TentBookingService {
         int currentlyUnavailable = 0;
         int peakUnavailable = 0;
 
+        //walk through the timeline in time order
         for (int quantityChange
                 : inventoryChanges.values()) {
 
@@ -299,19 +318,23 @@ public final class TentBookingService {
                 tentType.getTotalQuantity()
                         - peakUnavailable;
 
+        //availability should never display below zero
         return Math.max(0, available);
     }
 
+    //adds a reservation or maintenance range to the inventory-change timeline
     private void addUsageToTimeline(
             TreeMap<LocalDateTime, Integer> inventoryChanges,
             TimeRange requestedRange,
             TimeRange usedRange,
             int quantity
     ) {
+        //non-overlapping ranges have no effect
         if (!requestedRange.overlaps(usedRange)) {
             return;
         }
 
+        //limit the usage to the part that overlaps the requested range
         LocalDateTime overlapStart = laterOf(
                 requestedRange.getStart(),
                 usedRange.getStart()
@@ -322,12 +345,14 @@ public final class TentBookingService {
                 usedRange.getEnd()
         );
 
+        //inventory becomes unavailable at the start
         inventoryChanges.merge(
                 overlapStart,
                 quantity,
                 Integer::sum
         );
 
+        //inventory becomes available again at the end
         inventoryChanges.merge(
                 overlapEnd,
                 -quantity,
@@ -357,14 +382,22 @@ public final class TentBookingService {
         return second;
     }
 
-    public void confirmReservation(long reservationId) {
+    //staff confirms a pending reservation
+    public synchronized ReservationView confirmReservation(
+            long reservationId
+    ) {
         Reservation reservation =
                 requireReservation(reservationId);
 
         reservation.confirm();
+
+        return toView(reservation);
     }
 
-    public void rejectReservation(long reservationId) {
+    //staff rejects a pending or waitlisted reservation
+    public synchronized ReservationView rejectReservation(
+            long reservationId
+    ) {
         Reservation reservation =
                 requireReservation(reservationId);
 
@@ -386,9 +419,14 @@ public final class TentBookingService {
                             .getId()
             );
         }
+
+        return toView(reservation);
     }
 
-    public void cancelReservation(long reservationId) {
+    //cancels a reservation and rechecks the waitlist when inventory was released
+    public synchronized ReservationView cancelReservation(
+            long reservationId
+    ) {
         Reservation reservation =
                 requireReservation(reservationId);
 
@@ -410,9 +448,14 @@ public final class TentBookingService {
                             .getId()
             );
         }
+
+        return toView(reservation);
     }
 
-    public void completeReservation(long reservationId) {
+    //completes a confirmed reservation and releases inventory
+    public synchronized ReservationView completeReservation(
+            long reservationId
+    ) {
         Reservation reservation =
                 requireReservation(reservationId);
 
@@ -423,9 +466,12 @@ public final class TentBookingService {
                         .getTentType()
                         .getId()
         );
+
+        return toView(reservation);
     }
 
-    public MaintenanceBlock addMaintenanceBlock(
+    //temporarily removes tents from availability
+    public synchronized MaintenanceBlock addMaintenanceBlock(
             long tentTypeId,
             int quantityUnavailable,
             LocalDateTime from,
@@ -455,6 +501,7 @@ public final class TentBookingService {
                         timeRange
                 );
 
+        //don't let maintenance consume inventory that is already promised to customers
         if (availableQuantity < quantityUnavailable) {
             throw new InsufficientAvailabilityException(
                     "Cannot block "
@@ -486,7 +533,8 @@ public final class TentBookingService {
         return block;
     }
 
-    public void removeMaintenanceBlock(
+    //removes a maintenance block and rechecks waiting reservations
+    public synchronized void removeMaintenanceBlock(
             long maintenanceBlockId
     ) {
         MaintenanceBlock removed =
@@ -509,9 +557,9 @@ public final class TentBookingService {
         );
     }
 
-    //promotes the oldest requests that currently fit
-    //a larger older request may remain waitlisted while
-    //a smaller later request is promoted
+    //rechecks waitlisted reservations in request order
+    //a request that now fits becomes PENDING
+    //a request that still does not fit remains waiting
     private void promoteEligibleWaitlistEntries(
             long tentTypeId
     ) {
@@ -540,6 +588,7 @@ public final class TentBookingService {
             Reservation reservation =
                     entry.getReservation();
 
+            //ignore an entry if its reservation is no longer waitlisted
             if (reservation.getStatus()
                     != ReservationStatus.WAITLISTED) {
 
@@ -568,6 +617,7 @@ public final class TentBookingService {
         }
     }
 
+    //removes one reservation from its tent waitlist
     private void removeWaitlistEntry(
             Reservation reservation
     ) {
@@ -595,21 +645,39 @@ public final class TentBookingService {
         }
     }
 
-    public Customer getCustomer(long customerId) {
+    public synchronized Customer getCustomer(
+            long customerId
+    ) {
         return requireCustomer(customerId);
     }
 
-    public TentType getTentType(long tentTypeId) {
+    //returns a read-only customer snapshot for the REST API
+    public synchronized List<Customer> getAllCustomers() {
+        return List.copyOf(customers.values());
+    }
+
+    public synchronized TentType getTentType(
+            long tentTypeId
+    ) {
         return requireTentType(tentTypeId);
     }
 
-    public ReservationView getReservation(
-            long reservationId
-    ) {
-        return toView(requireReservation(reservationId));
+    //returns a read-only tent snapshot for the REST API
+    public synchronized List<TentType> getAllTentTypes() {
+        return List.copyOf(tentTypes.values());
     }
 
-    public List<ReservationView> getAllReservations() {
+    public synchronized ReservationView getReservation(
+            long reservationId
+    ) {
+        return toView(
+                requireReservation(reservationId)
+        );
+    }
+
+    //returns a safe copy of the reservation list
+    public synchronized List<ReservationView>
+    getAllReservations() {
         return reservations
                 .values()
                 .stream()
@@ -617,7 +685,36 @@ public final class TentBookingService {
                 .toList();
     }
 
-    public List<WaitlistEntryView> getWaitlistForTent(
+    //returns a read-only maintenance snapshot for the REST API
+    public synchronized List<MaintenanceBlock>
+    getAllMaintenanceBlocks() {
+        return List.copyOf(
+                maintenanceBlocks.values()
+        );
+    }
+
+    public synchronized MaintenanceBlock getMaintenanceBlock(
+            long maintenanceBlockId
+    ) {
+        MaintenanceBlock block =
+                maintenanceBlocks.get(
+                        maintenanceBlockId
+                );
+
+        if (block == null) {
+            throw new ResourceNotFoundException(
+                    "Maintenance block "
+                            + maintenanceBlockId
+                            + " was not found."
+            );
+        }
+
+        return block;
+    }
+
+    //returns the waitlist in the correct order
+    public synchronized List<WaitlistEntryView>
+    getWaitlistForTent(
             long tentTypeId
     ) {
         requireTentType(tentTypeId);
@@ -636,6 +733,7 @@ public final class TentBookingService {
                 .toList();
     }
 
+    //copies an internal mutable reservation into an immutable snapshot
     private ReservationView toView(
             Reservation reservation
     ) {
@@ -651,6 +749,7 @@ public final class TentBookingService {
         );
     }
 
+    //copies an internal waitlist entry and its reservation into immutable snapshots
     private WaitlistEntryView toView(
             WaitlistEntry entry
     ) {
@@ -661,7 +760,10 @@ public final class TentBookingService {
         );
     }
 
-    private Customer requireCustomer(long customerId) {
+    //finds a customer or throws a meaningful error
+    private Customer requireCustomer(
+            long customerId
+    ) {
         Customer customer =
                 customers.get(customerId);
 
@@ -676,7 +778,10 @@ public final class TentBookingService {
         return customer;
     }
 
-    private TentType requireTentType(long tentTypeId) {
+    //finds a tent type or throws a meaningful error
+    private TentType requireTentType(
+            long tentTypeId
+    ) {
         TentType tentType =
                 tentTypes.get(tentTypeId);
 
@@ -691,6 +796,7 @@ public final class TentBookingService {
         return tentType;
     }
 
+    //finds a reservation or throws a meaningful error
     private Reservation requireReservation(
             long reservationId
     ) {
