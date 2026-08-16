@@ -14,7 +14,7 @@
 
     <groupId>com.mthind</groupId>
     <artifactId>tentflow</artifactId>
-    <version>0.3.0-SNAPSHOT</version>
+    <version>0.3.0</version>
     <name>TentFlow</name>
     <description>Tent inventory and reservation management system</description>
 
