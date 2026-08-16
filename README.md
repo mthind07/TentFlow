@@ -1,71 +1,36 @@
-# TentFlow
+# TentFlow — Milestone 3
 
-TentFlow is a Java-based tent inventory and reservation management system.
+TentFlow is a Java 21 tent-inventory and reservation API. Milestone 3 keeps
+the Milestone 1 booking rules and Milestone 2 HTTP routes while moving runtime
+state to PostgreSQL using Spring Data JPA, Flyway, transactions, and
+database-level concurrency control.
 
-Milestone 1 is a pure-Java booking engine. It is not yet a web application.
+This is a local portfolio/demo application. Do not deploy it publicly:
+customer and staff mutation routes have no authentication or authorization.
+Security is planned for Milestone 4.
 
-## Milestone 1 features
+## What works
 
-- Customer registration
-- Configurable tent sizes and quantities
-- Separate event and setup/pickup windows
-- Pending inventory holds
-- Reservation confirmation, rejection, cancellation, and completion
-- Overlap detection
-- Peak simultaneous inventory calculation
-- Maintenance blocks
-- Ordered waitlists
-- Automatic promotion of the oldest request that currently fits
-- Immutable reservation and waitlist views
-- Automated JUnit tests
+- PostgreSQL persistence for customers, tents, reservations, maintenance,
+  and waitlists
+- Pending and confirmed inventory holds
+- Peak concurrent-usage availability calculation
+- Per-tent PostgreSQL row locking
+- Transactional waitlist promotion
+- Case-insensitive unique customer emails
+- Flyway schema migrations
+- OpenAPI and Swagger UI
+- 45 automated tests against real PostgreSQL
+- Java 21 GitHub Actions CI
 
-## Technology
+## Requirements
 
 - Java 21
-- Maven 3.9.11 through Maven Wrapper
-- JUnit Jupiter
-- IntelliJ IDEA
+- Docker Desktop
+- Git
 
-## Run the tests
+## Run locally
 
-On macOS/Linux:
-
-```bash
-./mvnw clean test
-```
-
-## Expected demo
-
-```text
-=== TentFlow Milestone 1 demo ===
-Inventory: 1 x 40x40 tent
-Alice's first result: PENDING
-Bob's first result: WAITLISTED
-Available in that window: 0
-Alice after staff approval: CONFIRMED
-Alice after cancellation: CANCELLED
-Bob after waitlist promotion: PENDING
-```
-
-## Current limitations
-
-- All information is stored in memory and disappears when the program stops.
-- Milestone 1 is sequential and is not thread-safe.
-- There is no REST API.
-- There is no database.
-- There is no authentication.
-- There is no web interface.
-- There are no payments.
-- `LocalDateTime` does not yet persist a business time zone.
-- Waitlist promotion means “oldest request that currently fits.” A smaller
-  request may pass an older request that needs more inventory.
-- A maintenance block is rejected if it would consume inventory already held
-  by pending or confirmed reservations.
-
-## Planned milestones
-
-1. Pure Java booking engine
-2. Spring Boot REST API
-3. PostgreSQL, JPA, Flyway, and database transaction safety
-4. Web interface, security, scheduling, and audit history
-5. Docker, CI/CD expansion, deployment, and release documentation
+```shell
+docker compose up -d --wait
+./mvnw spring-boot:run

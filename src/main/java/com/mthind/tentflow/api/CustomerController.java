@@ -3,7 +3,7 @@ package com.mthind.tentflow.api;
 import com.mthind.tentflow.api.dto.CreateCustomerRequest;
 import com.mthind.tentflow.api.dto.CustomerResponse;
 import com.mthind.tentflow.model.Customer;
-import com.mthind.tentflow.service.TentBookingService;
+import com.mthind.tentflow.service.BookingService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,11 +22,11 @@ import java.util.List;
 @RequestMapping("/api/customers")
 public class CustomerController {
 
-    private final TentBookingService bookingService;
+    private final BookingService bookingService;
     private final ApiMapper mapper;
 
     public CustomerController(
-            TentBookingService bookingService,
+            BookingService bookingService,
             ApiMapper mapper
     ) {
         this.bookingService = bookingService;
@@ -37,12 +37,11 @@ public class CustomerController {
     public ResponseEntity<CustomerResponse> createCustomer(
             @Valid @RequestBody CreateCustomerRequest request
     ) {
-        Customer customer =
-                bookingService.registerCustomer(
-                        request.fullName(),
-                        request.email(),
-                        request.phone()
-                );
+        Customer customer = bookingService.registerCustomer(
+                request.fullName(),
+                request.email(),
+                request.phone()
+        );
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
@@ -52,15 +51,12 @@ public class CustomerController {
 
         return ResponseEntity
                 .created(location)
-                .body(
-                        mapper.toCustomerResponse(customer)
-                );
+                .body(mapper.toCustomerResponse(customer));
     }
 
     @GetMapping
     public List<CustomerResponse> getCustomers() {
-        return bookingService
-                .getAllCustomers()
+        return bookingService.getAllCustomers()
                 .stream()
                 .map(mapper::toCustomerResponse)
                 .toList();

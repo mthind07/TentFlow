@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import com.mthind.tentflow.exception.DuplicateResourceException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -60,6 +61,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({
+            DuplicateResourceException.class,
             InvalidReservationStateException.class,
             InsufficientAvailabilityException.class
     })

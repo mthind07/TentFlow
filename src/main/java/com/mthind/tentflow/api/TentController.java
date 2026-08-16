@@ -5,7 +5,7 @@ import com.mthind.tentflow.api.dto.CreateTentRequest;
 import com.mthind.tentflow.api.dto.TentResponse;
 import com.mthind.tentflow.api.dto.WaitlistEntryResponse;
 import com.mthind.tentflow.model.TentType;
-import com.mthind.tentflow.service.TentBookingService;
+import com.mthind.tentflow.service.BookingService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -27,11 +27,11 @@ import java.util.List;
 @RequestMapping("/api/tents")
 public class TentController {
 
-    private final TentBookingService bookingService;
+    private final BookingService bookingService;
     private final ApiMapper mapper;
 
     public TentController(
-            TentBookingService bookingService,
+            BookingService bookingService,
             ApiMapper mapper
     ) {
         this.bookingService = bookingService;
@@ -42,12 +42,11 @@ public class TentController {
     public ResponseEntity<TentResponse> createTent(
             @Valid @RequestBody CreateTentRequest request
     ) {
-        TentType tentType =
-                bookingService.addTentType(
-                        request.widthFeet(),
-                        request.lengthFeet(),
-                        request.totalQuantity()
-                );
+        TentType tentType = bookingService.addTentType(
+                request.widthFeet(),
+                request.lengthFeet(),
+                request.totalQuantity()
+        );
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
@@ -57,24 +56,19 @@ public class TentController {
 
         return ResponseEntity
                 .created(location)
-                .body(
-                        mapper.toTentResponse(tentType)
-                );
+                .body(mapper.toTentResponse(tentType));
     }
 
     @GetMapping
     public List<TentResponse> getTents() {
-        return bookingService
-                .getAllTentTypes()
+        return bookingService.getAllTentTypes()
                 .stream()
                 .map(mapper::toTentResponse)
                 .toList();
     }
 
     @GetMapping("/{tentId}")
-    public TentResponse getTent(
-            @PathVariable long tentId
-    ) {
+    public TentResponse getTent(@PathVariable long tentId) {
         return mapper.toTentResponse(
                 bookingService.getTentType(tentId)
         );
@@ -83,28 +77,19 @@ public class TentController {
     @GetMapping("/{tentId}/availability")
     public AvailabilityResponse getAvailability(
             @PathVariable long tentId,
-
             @RequestParam
-            @DateTimeFormat(
-                    iso = DateTimeFormat.ISO.DATE_TIME
-            )
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime from,
-
             @RequestParam
-            @DateTimeFormat(
-                    iso = DateTimeFormat.ISO.DATE_TIME
-            )
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime until
     ) {
-        TentType tentType =
-                bookingService.getTentType(tentId);
-
-        int available =
-                bookingService.getAvailableQuantity(
-                        tentId,
-                        from,
-                        until
-                );
+        TentType tentType = bookingService.getTentType(tentId);
+        int available = bookingService.getAvailableQuantity(
+                tentId,
+                from,
+                until
+        );
 
         return new AvailabilityResponse(
                 tentType.getId(),
@@ -120,8 +105,7 @@ public class TentController {
     public List<WaitlistEntryResponse> getWaitlist(
             @PathVariable long tentId
     ) {
-        return bookingService
-                .getWaitlistForTent(tentId)
+        return bookingService.getWaitlistForTent(tentId)
                 .stream()
                 .map(mapper::toWaitlistEntryResponse)
                 .toList();

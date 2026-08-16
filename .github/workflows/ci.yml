@@ -4,8 +4,7 @@ on:
   push:
     branches:
       - main
-      - milestone-2-spring-boot-rest-api
-
+      - milestone-3-postgresql-persistence
   pull_request:
     branches:
       - main
@@ -21,7 +20,7 @@ jobs:
   verify:
     name: Java 21 Maven verification
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Check out repository
