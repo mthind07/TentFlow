@@ -22,8 +22,9 @@ import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.TreeMap;
 
-
-public final class TentBookingService {
+//in milestone 1 reference engine used by pure unit tests
+//the running milestone 3 application uses persistent tent booking service.
+public final class TentBookingService implements BookingService {
 
     //these maps act as temporary in-memory databases, the Long key is the object's ID
     private final Map<Long, Customer> customers =

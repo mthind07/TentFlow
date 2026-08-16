@@ -3,7 +3,7 @@ package com.mthind.tentflow.api;
 import com.mthind.tentflow.api.dto.CreateReservationRequest;
 import com.mthind.tentflow.api.dto.ReservationResponse;
 import com.mthind.tentflow.model.ReservationView;
-import com.mthind.tentflow.service.TentBookingService;
+import com.mthind.tentflow.service.BookingService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,11 +22,11 @@ import java.util.List;
 @RequestMapping("/api/reservations")
 public class ReservationController {
 
-    private final TentBookingService bookingService;
+    private final BookingService bookingService;
     private final ApiMapper mapper;
 
     public ReservationController(
-            TentBookingService bookingService,
+            BookingService bookingService,
             ApiMapper mapper
     ) {
         this.bookingService = bookingService;
@@ -37,17 +37,16 @@ public class ReservationController {
     public ResponseEntity<ReservationResponse> createReservation(
             @Valid @RequestBody CreateReservationRequest request
     ) {
-        ReservationView reservation =
-                bookingService.requestReservation(
-                        request.customerId(),
-                        request.tentId(),
-                        request.quantity(),
-                        request.eventStart(),
-                        request.eventEnd(),
-                        request.reservedFrom(),
-                        request.reservedUntil(),
-                        request.location()
-                );
+        ReservationView reservation = bookingService.requestReservation(
+                request.customerId(),
+                request.tentId(),
+                request.quantity(),
+                request.eventStart(),
+                request.eventEnd(),
+                request.reservedFrom(),
+                request.reservedUntil(),
+                request.location()
+        );
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
@@ -57,17 +56,12 @@ public class ReservationController {
 
         return ResponseEntity
                 .created(location)
-                .body(
-                        mapper.toReservationResponse(
-                                reservation
-                        )
-                );
+                .body(mapper.toReservationResponse(reservation));
     }
 
     @GetMapping
     public List<ReservationResponse> getReservations() {
-        return bookingService
-                .getAllReservations()
+        return bookingService.getAllReservations()
                 .stream()
                 .map(mapper::toReservationResponse)
                 .toList();
@@ -85,9 +79,7 @@ public class ReservationController {
             @PathVariable long reservationId
     ) {
         return mapper.toReservationResponse(
-                bookingService.confirmReservation(
-                        reservationId
-                )
+                bookingService.confirmReservation(reservationId)
         );
     }
 
@@ -96,9 +88,7 @@ public class ReservationController {
             @PathVariable long reservationId
     ) {
         return mapper.toReservationResponse(
-                bookingService.rejectReservation(
-                        reservationId
-                )
+                bookingService.rejectReservation(reservationId)
         );
     }
 
@@ -107,9 +97,7 @@ public class ReservationController {
             @PathVariable long reservationId
     ) {
         return mapper.toReservationResponse(
-                bookingService.completeReservation(
-                        reservationId
-                )
+                bookingService.completeReservation(reservationId)
         );
     }
 
@@ -118,19 +106,13 @@ public class ReservationController {
             @PathVariable long reservationId
     ) {
         return mapper.toReservationResponse(
-                bookingService.cancelReservation(
-                        reservationId
-                )
+                bookingService.cancelReservation(reservationId)
         );
     }
 
-    private ReservationResponse responseFor(
-            long reservationId
-    ) {
+    private ReservationResponse responseFor(long reservationId) {
         return mapper.toReservationResponse(
-                bookingService.getReservation(
-                        reservationId
-                )
+                bookingService.getReservation(reservationId)
         );
     }
 }
