@@ -4,8 +4,10 @@ import com.mthind.tentflow.api.dto.CreateMaintenanceBlockRequest;
 import com.mthind.tentflow.api.dto.MaintenanceBlockResponse;
 import com.mthind.tentflow.model.MaintenanceBlock;
 import com.mthind.tentflow.service.BookingService;
+import com.mthind.tentflow.service.BookingWorkflowService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,24 +23,28 @@ import java.util.List;
 //HTTP boundary for inventory maintenance windows
 @RestController
 @RequestMapping("/api/maintenance-blocks")
+@PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
 public class MaintenanceBlockController {
 
     private final BookingService bookingService;
     private final ApiMapper mapper;
+    private final BookingWorkflowService workflowService;
 
     public MaintenanceBlockController(
             BookingService bookingService,
-            ApiMapper mapper
+            ApiMapper mapper,
+            BookingWorkflowService workflowService
     ) {
         this.bookingService = bookingService;
         this.mapper = mapper;
+        this.workflowService = workflowService;
     }
 
     @PostMapping
     public ResponseEntity<MaintenanceBlockResponse> createMaintenanceBlock(
             @Valid @RequestBody CreateMaintenanceBlockRequest request
     ) {
-        MaintenanceBlock block = bookingService.addMaintenanceBlock(
+        MaintenanceBlock block = workflowService.addMaintenanceBlock(
                 request.tentId(),
                 request.quantityUnavailable(),
                 request.from(),
@@ -78,7 +84,7 @@ public class MaintenanceBlockController {
     public ResponseEntity<Void> removeMaintenanceBlock(
             @PathVariable long maintenanceBlockId
     ) {
-        bookingService.removeMaintenanceBlock(maintenanceBlockId);
+        workflowService.removeMaintenanceBlock(maintenanceBlockId);
         return ResponseEntity.noContent().build();
     }
 }

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Request a tent | TentFlow</title>
+    <link rel="stylesheet" th:href="@{/css/tentflow.css}">
+</head>
+<body>
+<header class="topbar">
+    <a class="brand" th:href="@{/}">TentFlow</a>
+    <a th:href="@{/customer/reservations}">My reservations</a>
+</header>
+<main class="page narrow">
+    <section class="card">
+        <p class="eyebrow">New request</p>
+        <h1>Request tent inventory</h1>
+        <p class="lead">Setup and pickup define the full period when inventory is unavailable.</p>
+        <form method="post" th:action="@{/customer/reservations}" th:object="${reservationForm}">
+            <div class="notice error" th:if="${#fields.hasGlobalErrors()}"
+                 th:each="error : ${#fields.globalErrors()}" th:text="${error}">
+                Reservation could not be created.
+            </div>
+
+            <label for="tentId">Tent size</label>
+            <select id="tentId" th:field="*{tentId}" required>
+                <option value="">Choose a tent</option>
+                <option th:each="tent : ${tents}" th:value="${tent.id}"
+                        th:text="|${tent.sizeLabel} — ${tent.totalQuantity} owned|">
+                    20x30 — 4 owned
+                </option>
+            </select>
+            <p class="field-error" th:if="${#fields.hasErrors('tentId')}" th:errors="*{tentId}">Tent error</p>
+
+            <label for="quantity">Quantity</label>
+            <input id="quantity" type="number" min="1" th:field="*{quantity}" required>
+            <p class="field-error" th:if="${#fields.hasErrors('quantity')}" th:errors="*{quantity}">Quantity error</p>
+
+            <div class="two-column">
+                <div>
+                    <label for="eventStart">Event starts</label>
+                    <input id="eventStart" type="datetime-local" th:field="*{eventStart}" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('eventStart')}" th:errors="*{eventStart}">Start error</p>
+                </div>
+                <div>
+                    <label for="eventEnd">Event ends</label>
+                    <input id="eventEnd" type="datetime-local" th:field="*{eventEnd}" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('eventEnd')}" th:errors="*{eventEnd}">End error</p>
+                </div>
+                <div>
+                    <label for="reservedFrom">Setup begins</label>
+                    <input id="reservedFrom" type="datetime-local" th:field="*{reservedFrom}" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('reservedFrom')}" th:errors="*{reservedFrom}">Setup error</p>
+                </div>
+                <div>
+                    <label for="reservedUntil">Pickup ends</label>
+                    <input id="reservedUntil" type="datetime-local" th:field="*{reservedUntil}" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('reservedUntil')}" th:errors="*{reservedUntil}">Pickup error</p>
+                </div>
+            </div>
+
+            <label for="location">Event location</label>
+            <input id="location" type="text" maxlength="250" th:field="*{location}" required>
+            <p class="field-error" th:if="${#fields.hasErrors('location')}" th:errors="*{location}">Location error</p>
+
+            <button class="button full-width" type="submit">Submit request</button>
+        </form>
+    </section>
+</main>
+</body>
+</html>

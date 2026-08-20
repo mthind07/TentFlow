@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reservation review | TentFlow</title>
+    <link rel="stylesheet" th:href="@{/css/tentflow.css}">
+</head>
+<body>
+<header class="topbar">
+    <a class="brand" th:href="@{/}">TentFlow</a>
+    <form method="post" th:action="@{/logout}">
+        <button class="link-button" type="submit">Sign out</button>
+    </form>
+</header>
+<main class="page wide">
+    <section class="page-heading">
+        <div>
+            <p class="eyebrow">Staff workspace</p>
+            <h1>Reservation review</h1>
+        </div>
+    </section>
+
+    <div class="notice success" th:if="${successMessage}" th:text="${successMessage}">
+        Reservation updated.
+    </div>
+    <div class="notice error" th:if="${errorMessage}" th:text="${errorMessage}">
+        Reservation changed before the action completed.
+    </div>
+
+    <section class="empty-state" th:if="${#lists.isEmpty(reservations)}">
+        <h2>No reservations to review</h2>
+    </section>
+
+    <div class="table-wrap" th:unless="${#lists.isEmpty(reservations)}">
+        <table>
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Customer</th>
+                <th>Tent</th>
+                <th>Inventory window</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="reservation : ${reservations}">
+                <td th:text="${reservation.id}">1</td>
+                <td>
+                    <strong th:text="${reservation.customer.fullName}">Customer</strong><br>
+                    <span th:text="${reservation.location}">Toronto</span>
+                </td>
+                <td th:text="|${reservation.quantity} × ${reservation.tentType.sizeLabel}|">1 × 20x30</td>
+                <td th:text="|${reservation.reservedTime.start} – ${reservation.reservedTime.end}|">Window</td>
+                <td>
+                    <span class="status" th:classappend="| status-${#strings.toLowerCase(reservation.status.name())}|"
+                          th:text="${reservation.status}">PENDING</span>
+                </td>
+                <td>
+                    <div class="action-row" th:if="${reservation.status.name() == 'PENDING'}">
+                        <form method="post" th:action="@{/staff/reservations/{id}/confirm(id=${reservation.id})}">
+                            <button class="button button-small" type="submit">Confirm</button>
+                        </form>
+                        <form method="post" th:action="@{/staff/reservations/{id}/reject(id=${reservation.id})}">
+                            <button class="button button-small button-danger" type="submit">Reject</button>
+                        </form>
+                    </div>
+                    <form method="post" th:if="${reservation.status.name() == 'WAITLISTED'}"
+                          th:action="@{/staff/reservations/{id}/reject(id=${reservation.id})}">
+                        <button class="button button-small button-danger" type="submit">Reject</button>
+                    </form>
+                    <form method="post" th:if="${reservation.status.name() == 'CONFIRMED'}"
+                          th:action="@{/staff/reservations/{id}/complete(id=${reservation.id})}">
+                        <button class="button button-small" type="submit">Complete</button>
+                    </form>
+                    <span th:if="${reservation.status.name() == 'REJECTED' or reservation.status.name() == 'CANCELLED' or reservation.status.name() == 'COMPLETED'}">—</span>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+</body>
+</html>

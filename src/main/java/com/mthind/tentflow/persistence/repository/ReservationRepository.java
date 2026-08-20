@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -28,12 +29,55 @@ public interface ReservationRepository
     @EntityGraph(attributePaths = {"customer", "tentType"})
     List<ReservationEntity> findAllByOrderByIdAsc();
 
+    @EntityGraph(attributePaths = {"customer", "tentType"})
+    List<ReservationEntity> findAllByCustomerIdOrderByIdAsc(long customerId);
+
+    @Query("""
+            SELECT reservation.customer.id
+            FROM ReservationEntity reservation
+            WHERE reservation.id = :reservationId
+            """)
+    Optional<Long> findCustomerIdByReservationId(
+            @Param("reservationId") long reservationId
+    );
+
     @Query("""
             SELECT reservation.tentType.id
             FROM ReservationEntity reservation
             WHERE reservation.id = :reservationId
             """)
     Optional<Long> findTentTypeIdByReservationId(
+            @Param("reservationId") long reservationId
+    );
+
+    @Query("""
+            SELECT reservation.id
+            FROM ReservationEntity reservation
+            WHERE reservation.status = :status
+              AND reservation.reservedUntil <= :now
+            ORDER BY reservation.id
+            """)
+    List<Long> findDueConfirmedIds(
+            @Param("status") ReservationStatus status,
+            @Param("now") LocalDateTime now,
+            Pageable pageable
+    );
+
+    @Query("""
+            SELECT reservation.status
+            FROM ReservationEntity reservation
+            WHERE reservation.id = :reservationId
+            """)
+    Optional<ReservationStatus> findStatusByReservationId(
+            @Param("reservationId") long reservationId
+    );
+
+    @Query("""
+            SELECT reservation.reservedUntil
+            FROM ReservationEntity reservation
+            WHERE reservation.id = :reservationId
+            """)
+    Optional<LocalDateTime> findReservedUntilByReservationId(
             @Param("reservationId") long reservationId
     );
 

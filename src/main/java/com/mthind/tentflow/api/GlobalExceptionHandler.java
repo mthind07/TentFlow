@@ -1,7 +1,10 @@
 package com.mthind.tentflow.api;
 
 import com.mthind.tentflow.api.dto.ApiErrorResponse;
+import com.mthind.tentflow.audit.AuditService;
+import com.mthind.tentflow.exception.DuplicateResourceException;
 import com.mthind.tentflow.exception.InsufficientAvailabilityException;
+import com.mthind.tentflow.exception.InvalidCredentialsException;
 import com.mthind.tentflow.exception.InvalidReservationStateException;
 import com.mthind.tentflow.exception.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,30 +12,69 @@ import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
-import com.mthind.tentflow.exception.DuplicateResourceException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 //converts domain and request failures into one predictable JSON shape
-@RestControllerAdvice
+@RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
 
-    private static final Logger LOGGER =
-            LoggerFactory.getLogger(
-                    GlobalExceptionHandler.class
-            );
+    private static final Logger LOGGER = LoggerFactory.getLogger(
+            GlobalExceptionHandler.class
+    );
+
+    private final AuditService auditService;
+
+    public GlobalExceptionHandler(AuditService auditService) {
+        this.auditService = auditService;
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidCredentials(
+            InvalidCredentialsException exception,
+            HttpServletRequest request
+    ) {
+        return error(
+                HttpStatus.UNAUTHORIZED,
+                exception.getMessage(),
+                request,
+                Map.of()
+        );
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(
+            AccessDeniedException exception,
+            HttpServletRequest request
+    ) {
+        auditService.failureInNewTransaction(
+                "ACCESS_DENIED",
+                "HTTP_REQUEST",
+                null,
+                "path=" + request.getRequestURI()
+        );
+        return error(
+                HttpStatus.FORBIDDEN,
+                "You do not have permission to perform this action.",
+                request,
+                Map.of()
+        );
+    }
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleNotFound(
@@ -95,18 +137,14 @@ public class GlobalExceptionHandler {
             MethodArgumentNotValidException exception,
             HttpServletRequest request
     ) {
-        Map<String, String> fieldErrors =
-                new LinkedHashMap<>();
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
 
-        exception
-                .getBindingResult()
+        exception.getBindingResult()
                 .getFieldErrors()
-                .forEach(fieldError ->
-                        fieldErrors.putIfAbsent(
-                                fieldError.getField(),
-                                fieldError.getDefaultMessage()
-                        )
-                );
+                .forEach(fieldError -> fieldErrors.putIfAbsent(
+                        fieldError.getField(),
+                        fieldError.getDefaultMessage()
+                ));
 
         return error(
                 HttpStatus.BAD_REQUEST,
@@ -117,24 +155,18 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ApiErrorResponse>
-    handleConstraintValidation(
+    public ResponseEntity<ApiErrorResponse> handleConstraintValidation(
             ConstraintViolationException exception,
             HttpServletRequest request
     ) {
-        Map<String, String> fieldErrors =
-                new LinkedHashMap<>();
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
 
-        exception
-                .getConstraintViolations()
-                .forEach(violation ->
-                        fieldErrors.putIfAbsent(
-                                violation
-                                        .getPropertyPath()
-                                        .toString(),
-                                violation.getMessage()
-                        )
-                );
+        exception.getConstraintViolations().forEach(violation ->
+                fieldErrors.putIfAbsent(
+                        violation.getPropertyPath().toString(),
+                        violation.getMessage()
+                )
+        );
 
         return error(
                 HttpStatus.BAD_REQUEST,
@@ -157,9 +189,7 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(
-            MissingServletRequestParameterException.class
-    )
+    @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ApiErrorResponse> handleMissingParameter(
             MissingServletRequestParameterException exception,
             HttpServletRequest request
@@ -174,9 +204,7 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(
-            MethodArgumentTypeMismatchException.class
-    )
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiErrorResponse> handleTypeMismatch(
             MethodArgumentTypeMismatchException exception,
             HttpServletRequest request
@@ -191,11 +219,8 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(
-            HttpRequestMethodNotSupportedException.class
-    )
-    public ResponseEntity<ApiErrorResponse>
-    handleUnsupportedMethod(
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleUnsupportedMethod(
             HttpRequestMethodNotSupportedException exception,
             HttpServletRequest request
     ) {
@@ -209,11 +234,8 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(
-            HttpMediaTypeNotSupportedException.class
-    )
-    public ResponseEntity<ApiErrorResponse>
-    handleUnsupportedMediaType(
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleUnsupportedMediaType(
             HttpMediaTypeNotSupportedException exception,
             HttpServletRequest request
     ) {
@@ -226,8 +248,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiErrorResponse>
-    handleUnexpectedFailure(
+    public ResponseEntity<ApiErrorResponse> handleUnexpectedFailure(
             Exception exception,
             HttpServletRequest request
     ) {
@@ -251,18 +272,21 @@ public class GlobalExceptionHandler {
             HttpServletRequest request,
             Map<String, String> fieldErrors
     ) {
-        ApiErrorResponse body =
-                new ApiErrorResponse(
-                        Instant.now(),
-                        status.value(),
-                        status.getReasonPhrase(),
-                        message,
-                        request.getRequestURI(),
-                        Map.copyOf(fieldErrors)
-                );
+        ApiErrorResponse body = new ApiErrorResponse(
+                Instant.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                message,
+                request.getRequestURI(),
+                com.mthind.tentflow.security.RequestIdFilter
+                        .currentRequestId(request),
+                Map.copyOf(fieldErrors)
+        );
 
-        return ResponseEntity
-                .status(status)
-                .body(body);
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(status);
+        if (status == HttpStatus.UNAUTHORIZED) {
+            response.header(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+        }
+        return response.body(body);
     }
 }

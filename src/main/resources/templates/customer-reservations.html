@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My reservations | TentFlow</title>
+    <link rel="stylesheet" th:href="@{/css/tentflow.css}">
+</head>
+<body>
+<header class="topbar">
+    <a class="brand" th:href="@{/}">TentFlow</a>
+    <form method="post" th:action="@{/logout}">
+        <button class="link-button" type="submit">Sign out</button>
+    </form>
+</header>
+<main class="page wide">
+    <section class="page-heading">
+        <div>
+            <p class="eyebrow">Customer workspace</p>
+            <h1 th:text="|${customer.fullName}'s reservations|">My reservations</h1>
+        </div>
+        <a class="button" th:href="@{/customer/reservations/new}">Request a tent</a>
+    </section>
+
+    <div class="notice success" th:if="${successMessage}" th:text="${successMessage}">
+        Reservation updated.
+    </div>
+    <div class="notice error" th:if="${errorMessage}" th:text="${errorMessage}">
+        Reservation could not be updated.
+    </div>
+
+    <section class="empty-state" th:if="${#lists.isEmpty(reservations)}">
+        <h2>No reservations yet</h2>
+        <p>Your first request will appear here.</p>
+    </section>
+
+    <section class="card-grid" th:unless="${#lists.isEmpty(reservations)}">
+        <article class="card reservation-card" th:each="reservation : ${reservations}">
+            <div class="card-heading">
+                <h2 th:text="|Reservation #${reservation.id}|">Reservation #1</h2>
+                <span class="status" th:classappend="| status-${#strings.toLowerCase(reservation.status.name())}|"
+                      th:text="${reservation.status}">PENDING</span>
+            </div>
+            <dl>
+                <div><dt>Tent</dt><dd th:text="|${reservation.quantity} × ${reservation.tentType.sizeLabel}|">1 × 20x30</dd></div>
+                <div><dt>Location</dt><dd th:text="${reservation.location}">Toronto</dd></div>
+                <div><dt>Event</dt><dd th:text="|${reservation.eventTime.start} – ${reservation.eventTime.end}|">Event time</dd></div>
+                <div><dt>Inventory held</dt><dd th:text="|${reservation.reservedTime.start} – ${reservation.reservedTime.end}|">Reserved time</dd></div>
+            </dl>
+            <form method="post"
+                  th:if="${reservation.status.name() == 'PENDING' or reservation.status.name() == 'WAITLISTED' or reservation.status.name() == 'CONFIRMED'}"
+                  th:action="@{/customer/reservations/{id}/cancel(id=${reservation.id})}">
+                <button class="button button-danger" type="submit">Cancel reservation</button>
+            </form>
+        </article>
+    </section>
+</main>
+</body>
+</html>

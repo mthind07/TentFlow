@@ -6,9 +6,11 @@ import com.mthind.tentflow.api.dto.TentResponse;
 import com.mthind.tentflow.api.dto.WaitlistEntryResponse;
 import com.mthind.tentflow.model.TentType;
 import com.mthind.tentflow.service.BookingService;
+import com.mthind.tentflow.service.BookingWorkflowService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,20 +31,24 @@ public class TentController {
 
     private final BookingService bookingService;
     private final ApiMapper mapper;
+    private final BookingWorkflowService workflowService;
 
     public TentController(
             BookingService bookingService,
-            ApiMapper mapper
+            ApiMapper mapper,
+            BookingWorkflowService workflowService
     ) {
         this.bookingService = bookingService;
         this.mapper = mapper;
+        this.workflowService = workflowService;
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
     public ResponseEntity<TentResponse> createTent(
             @Valid @RequestBody CreateTentRequest request
     ) {
-        TentType tentType = bookingService.addTentType(
+        TentType tentType = workflowService.addTentType(
                 request.widthFeet(),
                 request.lengthFeet(),
                 request.totalQuantity()
@@ -60,6 +66,7 @@ public class TentController {
     }
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public List<TentResponse> getTents() {
         return bookingService.getAllTentTypes()
                 .stream()
@@ -68,6 +75,7 @@ public class TentController {
     }
 
     @GetMapping("/{tentId}")
+    @PreAuthorize("isAuthenticated()")
     public TentResponse getTent(@PathVariable long tentId) {
         return mapper.toTentResponse(
                 bookingService.getTentType(tentId)
@@ -75,6 +83,7 @@ public class TentController {
     }
 
     @GetMapping("/{tentId}/availability")
+    @PreAuthorize("isAuthenticated()")
     public AvailabilityResponse getAvailability(
             @PathVariable long tentId,
             @RequestParam
@@ -102,6 +111,7 @@ public class TentController {
     }
 
     @GetMapping("/{tentId}/waitlist")
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
     public List<WaitlistEntryResponse> getWaitlist(
             @PathVariable long tentId
     ) {

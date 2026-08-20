@@ -6,6 +6,7 @@ target/
 
 ### IntelliJ IDEA ###
 .idea
+.idea/
 .idea/modules.xml
 .idea/jarRepositories.xml
 .idea/compiler.xml
@@ -32,6 +33,11 @@ target/
 build/
 !**/src/main/**/build/
 !**/src/test/**/build/
+
+### .ENV ###
+.env
+.env.*
+!.env.example
 
 ### VS Code ###
 .vscode/

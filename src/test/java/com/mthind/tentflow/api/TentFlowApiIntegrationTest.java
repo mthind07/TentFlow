@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -21,21 +23,23 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 /** Exercises the M2 HTTP contract against M3's real PostgreSQL service. */
 @SpringBootTest
 @AutoConfigureMockMvc
+@WithMockUser(username = "m3-admin@example.com", roles = "ADMIN")
 class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
 
     private static final String FROM = "2027-06-12T08:00:00";
@@ -102,8 +106,7 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
     }
 
     @Test
-    void tentEndpointsCreateReadListAndReportAvailability()
-            throws Exception {
+    void tentEndpointsCreateReadListAndReportAvailability() throws Exception {
         long tentId = createTent(10, 20, 3);
 
         mockMvc.perform(get("/api/tents/{id}", tentId))
@@ -257,16 +260,8 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
                 "casey.cancel@example.com"
         );
         long tentId = createTent(20, 30, 1);
-        long activeId = createReservation(
-                customerId,
-                tentId,
-                "PENDING"
-        );
-        long waitingId = createReservation(
-                customerId,
-                tentId,
-                "WAITLISTED"
-        );
+        long activeId = createReservation(customerId, tentId, "PENDING");
+        long waitingId = createReservation(customerId, tentId, "WAITLISTED");
 
         mockMvc.perform(post(
                         "/api/reservations/{id}/cancel",
@@ -297,11 +292,7 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
         );
         long tentId = createTent(20, 40, 1);
         long blockId = createMaintenanceBlock(tentId);
-        long waitingId = createReservation(
-                customerId,
-                tentId,
-                "WAITLISTED"
-        );
+        long waitingId = createReservation(customerId, tentId, "WAITLISTED");
 
         mockMvc.perform(get(
                         "/api/maintenance-blocks/{id}",
@@ -380,8 +371,7 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
     }
 
     @Test
-    void apiRejectsTorontoDaylightSavingGapAndOverlap()
-            throws Exception {
+    void apiRejectsTorontoDaylightSavingGapAndOverlap() throws Exception {
         long tentId = createTent(10, 20, 1);
 
         mockMvc.perform(get("/api/tents/{id}/availability", tentId)
@@ -467,8 +457,7 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
     }
 
     @Test
-    void concurrentHttpRequestsReceiveUniqueCustomerIds()
-            throws Exception {
+    void concurrentHttpRequestsReceiveUniqueCustomerIds() throws Exception {
         int requestCount = 24;
         CountDownLatch start = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(8);
@@ -482,10 +471,14 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
                     start.await();
 
                     MvcResult result = mockMvc.perform(post("/api/customers")
+                                    .with(jwt().authorities(
+                                            new SimpleGrantedAuthority(
+                                                    "ROLE_ADMIN"
+                                            )
+                                    ))
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content(customerJson(
-                                            "Concurrent "
-                                                    + customerNumber,
+                                            "Concurrent " + customerNumber,
                                             "concurrent-"
                                                     + customerNumber
                                                     + "@example.com"
@@ -530,6 +523,11 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
             Future<Integer> lowerCase = executor.submit(() -> {
                 start.await();
                 return mockMvc.perform(post("/api/customers")
+                                .with(jwt().authorities(
+                                        new SimpleGrantedAuthority(
+                                                "ROLE_ADMIN"
+                                        )
+                                ))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(customerJson(
                                         "Lower Case",
@@ -539,10 +537,14 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
                         .getResponse()
                         .getStatus();
             });
-
             Future<Integer> upperCase = executor.submit(() -> {
                 start.await();
                 return mockMvc.perform(post("/api/customers")
+                                .with(jwt().authorities(
+                                        new SimpleGrantedAuthority(
+                                                "ROLE_ADMIN"
+                                        )
+                                ))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(customerJson(
                                         "Upper Case",
@@ -558,7 +560,6 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
             Set<Integer> statuses = new HashSet<>();
             statuses.add(lowerCase.get(10, TimeUnit.SECONDS));
             statuses.add(upperCase.get(10, TimeUnit.SECONDS));
-
             assertEquals(Set.of(201, 409), statuses);
 
             mockMvc.perform(get("/api/customers"))
@@ -589,6 +590,11 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
 
                     MvcResult result = mockMvc.perform(
                                     post("/api/reservations")
+                                            .with(jwt().authorities(
+                                                    new SimpleGrantedAuthority(
+                                                            "ROLE_ADMIN"
+                                                    )
+                                            ))
                                             .contentType(
                                                     MediaType.APPLICATION_JSON
                                             )
@@ -621,7 +627,6 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
             assertTrue(created.stream().allMatch(
                     result -> result.httpStatus() == 201
             ));
-
             assertEquals(
                     Set.of("PENDING", "WAITLISTED"),
                     created.stream()
@@ -658,20 +663,24 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
         try {
             Future<MvcResult> reservationFuture = executor.submit(() -> {
                 start.await();
-
                 return mockMvc.perform(post("/api/reservations")
+                                .with(jwt().authorities(
+                                        new SimpleGrantedAuthority(
+                                                "ROLE_ADMIN"
+                                        )
+                                ))
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(reservationJson(
-                                        customerId,
-                                        tentId
-                                )))
+                                .content(reservationJson(customerId, tentId)))
                         .andReturn();
             });
-
             Future<MvcResult> maintenanceFuture = executor.submit(() -> {
                 start.await();
-
                 return mockMvc.perform(post("/api/maintenance-blocks")
+                                .with(jwt().authorities(
+                                        new SimpleGrantedAuthority(
+                                                "ROLE_ADMIN"
+                                        )
+                                ))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
                                         {
@@ -699,17 +708,13 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
                     10,
                     TimeUnit.SECONDS
             );
-
             String reservationStatus = JsonPath.read(
                     reservation.getResponse().getContentAsString(),
                     "$.status"
             );
-
-            int maintenanceStatus =
-                    maintenance.getResponse().getStatus();
+            int maintenanceStatus = maintenance.getResponse().getStatus();
 
             assertEquals(201, reservation.getResponse().getStatus());
-
             assertTrue(
                     (reservationStatus.equals("PENDING")
                             && maintenanceStatus == 409)
@@ -742,10 +747,8 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
                 )));
     }
 
-    private long createCustomer(
-            String fullName,
-            String email
-    ) throws Exception {
+    private long createCustomer(String fullName, String email)
+            throws Exception {
         MvcResult result = mockMvc.perform(post("/api/customers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(customerJson(fullName, email)))
@@ -761,11 +764,8 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
         return id;
     }
 
-    private long createTent(
-            int width,
-            int length,
-            int totalQuantity
-    ) throws Exception {
+    private long createTent(int width, int length, int totalQuantity)
+            throws Exception {
         MvcResult result = mockMvc.perform(post("/api/tents")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(tentJson(width, length, totalQuantity)))
@@ -820,11 +820,10 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
                 .andReturn();
 
         long id = idFrom(result);
+
         String location = result.getResponse().getHeader("Location");
 
-        assertTrue(location.endsWith(
-                "/api/maintenance-blocks/" + id
-        ));
+        assertTrue(location.endsWith("/api/maintenance-blocks/" + id));
 
         mockMvc.perform(get(URI.create(location)))
                 .andExpect(status().isOk())
@@ -844,10 +843,7 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
         return id.longValue();
     }
 
-    private static String customerJson(
-            String fullName,
-            String email
-    ) {
+    private static String customerJson(String fullName, String email) {
         return """
                 {
                   "fullName": "%s",
@@ -871,10 +867,7 @@ class TentFlowApiIntegrationTest extends PostgresIntegrationTest {
                 """.formatted(width, length, totalQuantity);
     }
 
-    private static String reservationJson(
-            long customerId,
-            long tentId
-    ) {
+    private static String reservationJson(long customerId, long tentId) {
         return """
                 {
                   "customerId": %d,
