@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sign in | TentFlow</title>
+    <link rel="stylesheet" th:href="@{/css/tentflow.css}">
+</head>
+<body>
+<main class="page narrow">
+    <a class="brand" th:href="@{/}">TentFlow</a>
+    <section class="card">
+        <p class="eyebrow">Welcome back</p>
+        <h1>Sign in</h1>
+        <div class="notice success" th:if="${param.registered}">
+            Account created. You can sign in now.
+        </div>
+        <div class="notice success" th:if="${param.logout}">
+            You have signed out.
+        </div>
+        <div class="notice error" th:if="${param.error}">
+            Invalid email or password.
+        </div>
+        <form method="post" th:action="@{/login}">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" autocomplete="username" required>
+
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password"
+                   autocomplete="current-password" required>
+
+            <button class="button full-width" type="submit">Sign in</button>
+        </form>
+        <p class="form-footer">
+            New customer? <a th:href="@{/register}">Create an account</a>
+        </p>
+    </section>
+</main>
+</body>
+</html>

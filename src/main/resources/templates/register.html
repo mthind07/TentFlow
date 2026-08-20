@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create account | TentFlow</title>
+    <link rel="stylesheet" th:href="@{/css/tentflow.css}">
+</head>
+<body>
+<main class="page narrow">
+    <a class="brand" th:href="@{/}">TentFlow</a>
+    <section class="card">
+        <p class="eyebrow">Customer access</p>
+        <h1>Create your account</h1>
+        <form method="post" th:action="@{/register}" th:object="${registrationForm}">
+            <div class="notice error" th:if="${#fields.hasGlobalErrors()}"
+                 th:each="error : ${#fields.globalErrors()}" th:text="${error}">
+                Registration could not be completed.
+            </div>
+
+            <label for="fullName">Full name</label>
+            <input id="fullName" type="text" th:field="*{fullName}"
+                   autocomplete="name" maxlength="100" required>
+            <p class="field-error" th:if="${#fields.hasErrors('fullName')}"
+               th:errors="*{fullName}">Full name error</p>
+
+            <label for="email">Email</label>
+            <input id="email" type="email" th:field="*{email}"
+                   autocomplete="email" maxlength="254" required>
+            <p class="field-error" th:if="${#fields.hasErrors('email')}"
+               th:errors="*{email}">Email error</p>
+
+            <label for="phone">Phone</label>
+            <input id="phone" type="tel" th:field="*{phone}"
+                   autocomplete="tel" maxlength="40" required>
+            <p class="field-error" th:if="${#fields.hasErrors('phone')}"
+               th:errors="*{phone}">Phone error</p>
+
+            <label for="password">Password</label>
+            <!-- Deliberately not th:field: rejected passwords must never be echoed. -->
+            <input id="password" name="password" type="password"
+                   autocomplete="new-password" minlength="12" maxlength="72" required>
+            <p class="hint">Use at least 12 characters and at most 72 UTF-8 bytes.</p>
+            <p class="field-error" th:if="${#fields.hasErrors('password')}"
+               th:errors="*{password}">Password error</p>
+
+            <button class="button full-width" type="submit">Create account</button>
+        </form>
+        <p class="form-footer">
+            Already registered? <a th:href="@{/login}">Sign in</a>
+        </p>
+    </section>
+</main>
+</body>
+</html>

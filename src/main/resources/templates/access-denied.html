@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Access denied | TentFlow</title>
+    <link rel="stylesheet" th:href="@{/css/tentflow.css}">
+</head>
+<body>
+<main class="page narrow">
+    <section class="card">
+        <p class="eyebrow">403</p>
+        <h1>That page is not available to your account.</h1>
+        <p class="lead">Return to your TentFlow dashboard to continue.</p>
+        <a class="button" th:href="@{/}">Go to dashboard</a>
+    </section>
+</main>
+</body>
+</html>

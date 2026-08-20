@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TentFlow</title>
+    <link rel="stylesheet" th:href="@{/css/tentflow.css}">
+</head>
+<body>
+<main class="page hero">
+    <section class="card hero-card">
+        <p class="eyebrow">Tent rental operations</p>
+        <h1>Plan events without losing track of inventory.</h1>
+        <p class="lead">
+            Customers can request tents online. Staff can review the queue,
+            manage each reservation, and keep a complete lifecycle history.
+        </p>
+        <div class="button-row">
+            <a class="button" th:href="@{/register}">Create customer account</a>
+            <a class="button button-secondary" th:href="@{/login}">Sign in</a>
+        </div>
+        <p class="small-link">
+            Developers: <a th:href="@{/swagger-ui.html}">open the API documentation</a>
+        </p>
+    </section>
+</main>
+</body>
+</html>
