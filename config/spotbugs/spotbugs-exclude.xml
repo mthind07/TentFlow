@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!--
+      Spring creates these application components and constructor-injects
+      their collaborators. Storing those container-owned references is the
+      intended dependency-injection pattern; the fields are private and no
+      accessor exposes them. Keep the class list explicit so mutable DTO/domain
+      state is still analyzed for EI_EXPOSE_REP2.
+    -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+        <Or>
+            <Class name="com.mthind.tentflow.api.CustomerController"/>
+            <Class name="com.mthind.tentflow.api.MaintenanceBlockController"/>
+            <Class name="com.mthind.tentflow.api.ReservationController"/>
+            <Class name="com.mthind.tentflow.api.TentController"/>
+            <Class name="com.mthind.tentflow.audit.AuditService"/>
+            <Class name="com.mthind.tentflow.automation.ReservationAutomationJob"/>
+            <Class name="com.mthind.tentflow.security.ApiErrorWriter"/>
+            <Class name="com.mthind.tentflow.security.RestAccessDeniedHandler"/>
+            <Class name="com.mthind.tentflow.security.RestAuthenticationEntryPoint"/>
+            <Class name="com.mthind.tentflow.service.AccountService"/>
+            <Class name="com.mthind.tentflow.service.BookingWorkflowService"/>
+            <Class name="com.mthind.tentflow.service.CustomerReservationQueryService"/>
+            <Class name="com.mthind.tentflow.service.PersistentTentBookingService"/>
+            <Class name="com.mthind.tentflow.web.CustomerPageController"/>
+            <Class name="com.mthind.tentflow.web.StaffPageController"/>
+        </Or>
+    </Match>
+</FindBugsFilter>
