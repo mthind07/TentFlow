@@ -56,10 +56,11 @@ public class SecurityIdentity {
     }
 
     public boolean hasRole(Authentication authentication, Role role) {
+        String requiredAuthority = "ROLE_" + role.name();
         return authentication != null
                 && authentication.getAuthorities().stream().anyMatch(
-                authority -> authority.getAuthority().equals(
-                        "ROLE_" + role.name()
+                authority -> requiredAuthority.equals(
+                        authority.getAuthority()
                 )
         );
     }

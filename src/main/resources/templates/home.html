@@ -4,25 +4,106 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>TentFlow</title>
+    <meta name="description"
+          content="Tent inventory and reservation operations in one secure workflow.">
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
     <link rel="stylesheet" th:href="@{/css/tentflow.css}">
 </head>
-<body>
-<main class="page hero">
-    <section class="card hero-card">
-        <p class="eyebrow">Tent rental operations</p>
-        <h1>Plan events without losing track of inventory.</h1>
-        <p class="lead">
-            Customers can request tents online. Staff can review the queue,
-            manage each reservation, and keep a complete lifecycle history.
-        </p>
-        <div class="button-row">
-            <a class="button" th:href="@{/register}">Create customer account</a>
-            <a class="button button-secondary" th:href="@{/login}">Sign in</a>
+<body class="landing-body">
+<header class="landing-nav">
+    <a class="brand" th:href="@{/}">
+        <span class="brand-mark" aria-hidden="true">TF</span>
+        TentFlow
+    </a>
+    <a class="nav-link" th:href="@{/login}">Sign in</a>
+</header>
+
+<main class="landing-page">
+    <section class="hero-panel">
+        <div class="hero-copy">
+            <p class="eyebrow">Tent rental operations, connected</p>
+            <h1>Plan the event. TentFlow protects the inventory.</h1>
+            <p class="lead">
+                One secure workflow for customer requests, staff decisions,
+                maintenance blocks, waitlists, and a complete audit trail.
+            </p>
+            <div class="button-row hero-actions">
+                <a class="button" th:href="@{/register}">
+                    Create customer account
+                </a>
+                <a class="button button-secondary" th:href="@{/login}">
+                    Sign in
+                </a>
+            </div>
+            <p class="small-link">
+                Building an integration?
+                <a th:href="@{/swagger-ui.html}">
+                    Open the API documentation
+                </a>
+            </p>
         </div>
-        <p class="small-link">
-            Developers: <a th:href="@{/swagger-ui.html}">open the API documentation</a>
-        </p>
+
+        <aside class="workflow-panel" aria-label="Reservation workflow">
+            <p class="workflow-label">Live workflow</p>
+            <ol class="workflow-steps">
+                <li>
+                    <span>01</span>
+                    <strong>Request</strong>
+                    <small>Capture the full setup-to-pickup window.</small>
+                </li>
+                <li>
+                    <span>02</span>
+                    <strong>Review</strong>
+                    <small>
+                        Hold inventory or join the oldest-first waitlist.
+                    </small>
+                </li>
+                <li>
+                    <span>03</span>
+                    <strong>Deliver</strong>
+                    <small>Complete the event and promote the queue.</small>
+                </li>
+            </ol>
+            <p class="operational-note">
+                <span aria-hidden="true"></span>
+                Readiness checks include PostgreSQL
+            </p>
+        </aside>
+    </section>
+
+    <section class="feature-grid" aria-label="TentFlow capabilities">
+        <article class="feature-card">
+            <p class="feature-number">01</p>
+            <h2>Inventory that understands time</h2>
+            <p>
+                Overlap calculation includes setup and pickup, confirmed
+                holds, and maintenance downtime.
+            </p>
+        </article>
+
+        <article class="feature-card">
+            <p class="feature-number">02</p>
+            <h2>Separate customer and staff spaces</h2>
+            <p>
+                Role-based browser sessions and a stateless bearer-token API
+                protect every workflow.
+            </p>
+        </article>
+
+        <article class="feature-card">
+            <p class="feature-number">03</p>
+            <h2>Built for operational confidence</h2>
+            <p>
+                Transactional PostgreSQL writes, immutable audit history,
+                health probes, and monitored releases.
+            </p>
+        </article>
     </section>
 </main>
+
+<footer class="site-footer">
+    <span>TentFlow 1.0</span>
+    <span>Java 21 · Spring Boot · PostgreSQL</span>
+</footer>
 </body>
 </html>

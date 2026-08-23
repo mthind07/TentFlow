@@ -9,4 +9,8 @@ public record AuditPageResponse(
         long totalElements,
         int totalPages
 ) {
+    public AuditPageResponse {
+        //audit pages are snapshots; callers cannot mutate their contents
+        content = List.copyOf(content);
+    }
 }

@@ -7,6 +7,7 @@ import com.mthind.tentflow.security.RestAccessDeniedHandler;
 import com.mthind.tentflow.security.RestAuthenticationEntryPoint;
 import com.mthind.tentflow.security.Utf8BoundedPasswordEncoder;
 import jakarta.servlet.DispatcherType;
+import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -50,6 +51,35 @@ public class SecurityConfiguration {
 
     @Bean
     @Order(1)
+    SecurityFilterChain actuatorSecurityFilterChain(
+            HttpSecurity http
+    ) throws Exception {
+        http
+                //match Actuator endpoints by endpoint identity instead of assuming that the /actuator base path never changes
+                .securityMatcher(EndpointRequest.toAnyEndpoint())
+                .cors(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .logout(AbstractHttpConfigurer::disable)
+                .requestCache(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(
+                        SessionCreationPolicy.STATELESS
+                ))
+                .authorizeHttpRequests(authorize -> authorize
+                        //Port 8081 is internal-only in the supported Docker and Render deployments. Do not publish that port
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/health/**",
+                                "/actuator/prometheus"
+                        ).permitAll()
+                        .anyRequest().denyAll()
+                );
+
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     SecurityFilterChain apiSecurityFilterChain(
             HttpSecurity http,
             RestAuthenticationEntryPoint authenticationEntryPoint,
@@ -95,7 +125,7 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    @Order(2)
+    @Order(3)
     SecurityFilterChain browserSecurityFilterChain(
             HttpSecurity http,
             AuditService auditService
@@ -114,7 +144,12 @@ public class SecurityConfiguration {
                                 "/error",
                                 "/access-denied",
                                 "/favicon.ico",
+                                "/favicon.svg",
+                                "/robots.txt",
                                 "/css/**",
+                                "/images/**",
+                                "/livez",
+                                "/readyz",
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**"
@@ -153,6 +188,7 @@ public class SecurityConfiguration {
                 .exceptionHandling(exceptions -> exceptions
                         .accessDeniedPage("/access-denied")
                 );
+
         return http.build();
     }
 
@@ -168,6 +204,7 @@ public class SecurityConfiguration {
         authenticationConverter.setJwtGrantedAuthoritiesConverter(
                 authoritiesConverter
         );
+
         return authenticationConverter;
     }
 
@@ -180,6 +217,7 @@ public class SecurityConfiguration {
                         new BCryptPasswordEncoder(properties.bcryptStrength())
                 )
         );
+
         return new Utf8BoundedPasswordEncoder(delegate);
     }
 
@@ -190,13 +228,16 @@ public class SecurityConfiguration {
     ) {
         DaoAuthenticationProvider provider =
                 new DaoAuthenticationProvider(userDetailsService);
+
         provider.setPasswordEncoder(passwordEncoder);
+
         return new ProviderManager(provider);
     }
 
     @Bean
     SecretKey jwtSecretKey(TentFlowSecurityProperties properties) {
         byte[] decoded;
+
         try {
             decoded = Base64.getDecoder().decode(properties.jwtSecret());
         } catch (IllegalArgumentException exception) {
@@ -236,13 +277,11 @@ public class SecurityConfiguration {
 
         JwtTimestampValidator timestampValidator =
                 new JwtTimestampValidator();
+
         timestampValidator.setClock(clock);
 
-        /*
-         * Spring permits a token without an exp claim by default. TentFlow
-         * requires every API access token to expire, so a missing exp is
-         * treated as invalid.
-         */
+        //spring permits a token without an exp claim by default
+        //TentFlow requires every API access token to expire, so a missing exp is treated as invalid
         timestampValidator.setAllowEmptyExpiryClaim(false);
 
         OAuth2TokenValidator<Jwt> validator =
@@ -251,17 +290,16 @@ public class SecurityConfiguration {
                         new JwtIssuerValidator(properties.issuer()),
                         new JwtAudienceValidator(properties.audience()),
 
-                        /*
-                         * A nonblank JWT ID uniquely identifies every token
-                         * and leaves room for future revocation support.
-                         */
+                        //nonblank JWT ID uniquely identifies every token and leaves room for future revocation support
                         new JwtClaimValidator<Object>(
                                 "jti",
                                 value -> value instanceof String jwtId
                                         && !jwtId.isBlank()
                         )
                 );
+
         decoder.setJwtValidator(validator);
+
         return decoder;
     }
 }

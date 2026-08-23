@@ -1,6 +1,7 @@
 package com.mthind.tentflow.model;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 //internal queue entry for a waitlisted reservation
 public final class WaitlistEntry
@@ -51,6 +52,22 @@ public final class WaitlistEntry
         }
 
         return Long.compare(id, other.id);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (!(other instanceof WaitlistEntry entry)) {
+            return false;
+        }
+        return id == entry.id && joinedAt.equals(entry.joinedAt);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, joinedAt);
     }
 
     public long getId() {

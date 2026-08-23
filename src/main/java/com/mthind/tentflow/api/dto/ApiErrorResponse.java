@@ -14,4 +14,10 @@ public record ApiErrorResponse(
         UUID requestId,
         Map<String, String> fieldErrors
 ) {
+    public ApiErrorResponse {
+        //copy mutable caller input so an error response cannot change after it has crossed the API boundary
+        fieldErrors = fieldErrors == null
+                ? Map.of()
+                : Map.copyOf(fieldErrors);
+    }
 }

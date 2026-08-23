@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: tentflow
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /readyz
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: production
+      - key: TENTFLOW_COOKIE_SECURE
+        value: "true"
+      - key: TENTFLOW_DATABASE_URL
+        fromDatabase:
+          name: tentflow-database
+          property: connectionString
+      - key: TENTFLOW_DATABASE_USERNAME
+        fromDatabase:
+          name: tentflow-database
+          property: user
+      - key: TENTFLOW_DATABASE_PASSWORD
+        fromDatabase:
+          name: tentflow-database
+          property: password
+      - key: TENTFLOW_JWT_SECRET
+        #render generates a random Base64-encoded 256-bit secret
+        generateValue: true
+      - key: TENTFLOW_BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: TENTFLOW_BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+
+databases:
+  - name: tentflow-database
+    plan: free
+    databaseName: tentflow
+    user: tentflow

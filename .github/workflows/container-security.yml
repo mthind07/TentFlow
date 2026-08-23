@@ -1,0 +1,47 @@
+name: Container security
+
+on:
+  push:
+    branches:
+      - main
+      - milestone-5-release-engineering-deployment
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: "43 7 * * 2"
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Build and scan production image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build local scan image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          push: false
+          tags: tentflow:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan image for HIGH and CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: tentflow:scan
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
