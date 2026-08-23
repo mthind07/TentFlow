@@ -57,7 +57,6 @@ public class SecurityConfiguration {
         http
                 //match Actuator endpoints by endpoint identity instead of assuming that the /actuator base path never changes
                 .securityMatcher(EndpointRequest.toAnyEndpoint())
-                .csrf(AbstractHttpConfigurer::disable)
                 .cors(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
