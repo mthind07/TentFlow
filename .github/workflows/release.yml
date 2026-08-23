@@ -1,0 +1,145 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Verify and publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Require the tagged commit to be on main
+        shell: bash
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+            echo "Release tags must point to a commit already merged into main." >&2
+            exit 1
+          }
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Require tag and Maven version to match
+        shell: bash
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          project_version="$(
+            ./mvnw --quiet \
+              help:evaluate \
+              -Dexpression=project.version \
+              -DforceStdout
+          )"
+
+          test "$project_version" = "$tag_version" || {
+            echo "Tag $GITHUB_REF_NAME does not match Maven version $project_version." >&2
+            exit 1
+          }
+
+      - name: Run every release quality gate
+        run: ./mvnw --batch-mode --no-transfer-progress clean verify
+
+      - name: Create JAR checksum
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          cd target
+          sha256sum "tentflow-${version}.jar" \
+            > "tentflow-${version}.jar.sha256"
+
+      - name: Normalize container image name
+        shell: bash
+        run: |
+          repository="$(
+            printf '%s' "$GITHUB_REPOSITORY" \
+              | tr '[:upper:]' '[:lower:]'
+          )"
+          echo "TENTFLOW_IMAGE=ghcr.io/${repository}" >> "$GITHUB_ENV"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Generate image metadata
+        id: metadata
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.TENTFLOW_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Build release candidate image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          push: false
+          tags: tentflow:release-candidate
+          labels: ${{ steps.metadata.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan release candidate image
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          image-ref: tentflow:release-candidate
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Tag and publish the exact scanned image
+        shell: bash
+        env:
+          TENTFLOW_IMAGE_TAGS: ${{ steps.metadata.outputs.tags }}
+        run: |
+          while IFS= read -r image_tag; do
+            test -n "$image_tag" || continue
+            docker tag tentflow:release-candidate "$image_tag"
+            docker push "$image_tag"
+          done <<< "$TENTFLOW_IMAGE_TAGS"
+
+      - name: Generate SPDX software bill of materials
+        uses: anchore/sbom-action@v0.24.0
+        with:
+          image: ${{ env.TENTFLOW_IMAGE }}:${{ steps.metadata.outputs.version }}
+          format: spdx-json
+          output-file: target/tentflow-${{ github.ref_name }}.spdx.json
+          upload-artifact: false
+
+      - name: Publish GitHub release assets and generated notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME"
+          target/tentflow-*.jar
+          target/tentflow-*.jar.sha256
+          target/tentflow-*.spdx.json
+          --verify-tag
+          --generate-notes
+          --title "TentFlow $GITHUB_REF_NAME"

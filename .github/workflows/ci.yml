@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - milestone-4-user-workflows-security-audit
+      - milestone-5-release-engineering-deployment
   pull_request:
     branches:
       - main
@@ -18,9 +18,9 @@ concurrency:
 
 jobs:
   verify:
-    name: Java 21 Maven verification
+    name: Java 21 quality gates
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Check out repository
@@ -33,5 +33,69 @@ jobs:
           java-version: "21"
           cache: maven
 
-      - name: Verify project
+      - name: Run tests, coverage, style, and SpotBugs gates
         run: ./mvnw --batch-mode --no-transfer-progress clean verify
+
+      - name: Upload JaCoCo report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: jacoco-report
+          path: target/site/jacoco
+          if-no-files-found: error
+
+      - name: Upload executable application JAR
+        uses: actions/upload-artifact@v7
+        with:
+          name: tentflow-application
+          path: target/tentflow-*.jar
+          if-no-files-found: error
+
+  container:
+    name: Production container smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: verify
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Create ephemeral CI configuration
+        shell: bash
+        run: |
+          jwt_secret="$(openssl rand -base64 32)"
+          echo "::add-mask::$jwt_secret"
+          {
+            echo "TENTFLOW_JWT_SECRET=$jwt_secret"
+            echo "TENTFLOW_BOOTSTRAP_ADMIN_EMAIL=ci-admin@tentflow.invalid"
+            echo "TENTFLOW_BOOTSTRAP_ADMIN_PASSWORD=CI-Only-Admin-Password-42"
+            echo "TENTFLOW_DATABASE_PASSWORD=CI-Only-Database-Password-42"
+          } >> "$GITHUB_ENV"
+
+      - name: Build and start application plus PostgreSQL
+        run: docker compose --profile full up --build --detach --wait
+
+      - name: Prove non-root and internal-management boundaries
+        shell: bash
+        run: |
+          container_id="$(docker compose ps --quiet application)"
+          test "$(docker inspect --format '{{.Config.User}}' "$container_id")" = "10001:10001"
+          test -z "$(docker port "$container_id" 8081/tcp)"
+          docker compose exec -T application \
+            wget -q -O - http://127.0.0.1:8081/actuator/prometheus \
+            | grep -q '^jvm_info'
+
+      - name: Exercise a complete booking lifecycle
+        env:
+          TENTFLOW_ADMIN_EMAIL: ci-admin@tentflow.invalid
+          TENTFLOW_ADMIN_PASSWORD: CI-Only-Admin-Password-42
+        run: ./scripts/smoke-test.sh
+
+      - name: Show container logs after a failure
+        if: failure()
+        run: docker compose --profile full logs --no-color
+
+      - name: Stop the ephemeral CI stack
+        if: always()
+        run: docker compose --profile full down --volumes
