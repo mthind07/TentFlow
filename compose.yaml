@@ -2,18 +2,72 @@ services:
   database:
     image: postgres:18.4-alpine
     environment:
-      POSTGRES_DB: tentflow
-      POSTGRES_USER: tentflow
-      POSTGRES_PASSWORD: tentflow
+      POSTGRES_DB: ${TENTFLOW_DATABASE_NAME:-tentflow}
+      POSTGRES_USER: ${TENTFLOW_DATABASE_USERNAME:-tentflow}
+      POSTGRES_PASSWORD: ${TENTFLOW_DATABASE_PASSWORD:-tentflow}
     ports:
-      - "5432:5432"
+      #the same variable configures local Maven and the Compose host port
+      - "${TENTFLOW_DATABASE_PORT:-5432}:5432"
     volumes:
       - tentflow-postgres:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tentflow -d tentflow"]
+      test:
+        - CMD-SHELL
+        - >-
+          pg_isready
+          -U ${TENTFLOW_DATABASE_USERNAME:-tentflow}
+          -d ${TENTFLOW_DATABASE_NAME:-tentflow}
       interval: 5s
       timeout: 3s
       retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  application:
+    profiles: ["full"]
+    image: ${TENTFLOW_IMAGE:-tentflow:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      #exercise the same URI-to-JDBC adapter used by Render deployments
+      TENTFLOW_DATABASE_URL: >-
+        postgresql://${TENTFLOW_DATABASE_USERNAME:-tentflow}:${TENTFLOW_DATABASE_PASSWORD:-tentflow}@database:5432/${TENTFLOW_DATABASE_NAME:-tentflow}
+      TENTFLOW_DATABASE_USERNAME: ${TENTFLOW_DATABASE_USERNAME:-tentflow}
+      TENTFLOW_DATABASE_PASSWORD: ${TENTFLOW_DATABASE_PASSWORD:-tentflow}
+      TENTFLOW_JWT_SECRET: ${TENTFLOW_JWT_SECRET:-}
+      TENTFLOW_BOOTSTRAP_ADMIN_EMAIL: ${TENTFLOW_BOOTSTRAP_ADMIN_EMAIL:-}
+      TENTFLOW_BOOTSTRAP_ADMIN_PASSWORD: ${TENTFLOW_BOOTSTRAP_ADMIN_PASSWORD:-}
+      TENTFLOW_COOKIE_SECURE: ${TENTFLOW_COOKIE_SECURE:-false}
+    ports:
+      - "${TENTFLOW_APPLICATION_HOST_PORT:-8080}:8080"
+    expose:
+      #internal health/Prometheus port; deliberately not published to host
+      - "8081"
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - -O
+        - /dev/null
+        - http://127.0.0.1:8080/readyz
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 40s
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
 
 volumes:
   tentflow-postgres:
