@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 #build with the same Java release and Maven Wrapper used by contributors/CI
-FROM eclipse-temurin:21-jdk-alpine AS build
+FROM eclipse-temurin:25-jdk-alpine AS build
 WORKDIR /workspace
 
 #cache dependency resolution until pom.xml or the wrapper changes
@@ -17,7 +17,7 @@ RUN ./mvnw --batch-mode --no-transfer-progress \
     -DskipTests clean package
 
 #runtime image contains no compiler, Maven installation, or source tree
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 
 #pull patched Alpine packages even when the base-image layer is cached
 RUN apk upgrade --no-cache \
