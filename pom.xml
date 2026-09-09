@@ -25,6 +25,13 @@
         <maven-enforcer.version>3.6.2</maven-enforcer.version>
         <postgresql.version>42.7.12</postgresql.version>
         <spotbugs-maven.version>4.10.3.0</spotbugs-maven.version>
+
+        <!--
+        Spring Boot 4.0.7 manages Tomcat 11.0.22 by default.
+        This override installs the patched Tomcat release across all embedded
+        Tomcat modules until Spring Boot's managed version catches up.
+        -->
+        <tomcat.version>11.0.25</tomcat.version>
     </properties>
 
     <dependencies>

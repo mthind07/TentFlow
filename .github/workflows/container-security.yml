@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
   schedule:
     - cron: "43 7 * * 2"
 
@@ -27,15 +28,20 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build local scan image
+      - name: Build a completely fresh scan image
         uses: docker/build-push-action@v7
         with:
           context: .
           load: true
           push: false
           tags: tentflow:scan
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+
+          #always retrieve the current Java base-image metadata
+          pull: true
+
+          #security scan must not reuse an old cached `apk upgrade` layer
+          #this ensures current Alpine security patches are installed
+          no-cache: true
 
       - name: Scan image for HIGH and CRITICAL vulnerabilities
         uses: aquasecurity/trivy-action@v0.36.0
